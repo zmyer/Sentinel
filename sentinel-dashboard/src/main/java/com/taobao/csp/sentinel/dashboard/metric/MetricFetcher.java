@@ -40,7 +40,7 @@ import com.alibaba.csp.sentinel.util.StringUtil;
 import com.taobao.csp.sentinel.dashboard.datasource.entity.MetricEntity;
 import com.taobao.csp.sentinel.dashboard.discovery.AppManagement;
 import com.taobao.csp.sentinel.dashboard.discovery.MachineInfo;
-import com.taobao.csp.sentinel.dashboard.inmem.InMemMetricStore;
+import com.taobao.csp.sentinel.dashboard.repository.metric.MetricsRepository;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.concurrent.FutureCallback;
@@ -78,7 +78,7 @@ public class MetricFetcher {
     private Map<String, AtomicLong> appLastFetchTime = new ConcurrentHashMap<>();
 
     @Autowired
-    private InMemMetricStore metricStore;
+    private MetricsRepository<MetricEntity> metricStore;
     @Autowired
     private AppManagement appManagement;
 
@@ -184,7 +184,7 @@ public class MetricFetcher {
         final CountDownLatch latch = new CountDownLatch(machines.size());
         for (final MachineInfo machine : machines) {
             // dead
-            if (System.currentTimeMillis() - machine.getVersion().getTime() > MAX_CLIENT_LIVE_TIME_MS) {
+            if (System.currentTimeMillis() - machine.getTimestamp().getTime() > MAX_CLIENT_LIVE_TIME_MS) {
                 latch.countDown();
                 dead.incrementAndGet();
                 continue;
@@ -304,19 +304,19 @@ public class MetricFetcher {
                 String key = buildMetricKey(machine.getApp(), node.getResource(), node.getTimestamp());
                 MetricEntity entity = map.get(key);
                 if (entity != null) {
-                    entity.addPassedQps(node.getPassedQps());
-                    entity.addBlockedQps(node.getBlockedQps());
+                    entity.addPassQps(node.getPassQps());
+                    entity.addBlockQps(node.getBlockQps());
                     entity.addRtAndSuccessQps(node.getRt(), node.getSuccessQps());
-                    entity.addException(node.getException());
+                    entity.addExceptionQps(node.getExceptionQps());
                     entity.addCount(1);
                 } else {
                     entity = new MetricEntity();
                     entity.setApp(machine.getApp());
                     entity.setTimestamp(new Date(node.getTimestamp()));
-                    entity.setPassedQps(node.getPassedQps());
-                    entity.setBlockedQps(node.getBlockedQps());
+                    entity.setPassQps(node.getPassQps());
+                    entity.setBlockQps(node.getBlockQps());
                     entity.setRtAndSuccessQps(node.getRt(), node.getSuccessQps());
-                    entity.setException(node.getException());
+                    entity.setExceptionQps(node.getExceptionQps());
                     entity.setCount(1);
                     entity.setResource(node.getResource());
                     map.put(key, entity);

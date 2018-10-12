@@ -40,12 +40,9 @@ import com.alibaba.csp.sentinel.slots.clusterbuilder.ClusterBuilderSlot;
  */
 public class FlowRule extends AbstractRule {
 
-    public static final String LIMIT_APP_DEFAULT = "default";
-    public static final String LIMIT_APP_OTHER = "other";
-
     public FlowRule(){
         super();
-        setLimitApp(LIMIT_APP_DEFAULT);
+        setLimitApp(RuleConstant.LIMIT_APP_DEFAULT);
     }
 
     /**
@@ -53,13 +50,23 @@ public class FlowRule extends AbstractRule {
      */
     private int grade = RuleConstant.FLOW_GRADE_QPS;
 
+    /**
+     * Flow control threshold count.
+     */
     private double count;
 
     /**
-     * 0为直接限流;1为关联限流;2为链路限流
+     * Flow control strategy based on invocation chain.
+     *
+     * {@link RuleConstant#STRATEGY_DIRECT} for direct flow control (by origin);
+     * {@link RuleConstant#STRATEGY_RELATE} for relevant flow control (with relevant resource);
+     * {@link RuleConstant#STRATEGY_CHAIN} for chain flow control (by entrance resource).
      */
     private int strategy = RuleConstant.STRATEGY_DIRECT;
 
+    /**
+     * Reference resource in flow control with relevant resource.
+     */
     private String refResource;
 
     /**
@@ -186,7 +193,7 @@ public class FlowRule extends AbstractRule {
                 return node;
             }
 
-        } else if (LIMIT_APP_DEFAULT.equals(limitApp)) {
+        } else if (RuleConstant.LIMIT_APP_DEFAULT.equals(limitApp)) {
             if (strategy == RuleConstant.STRATEGY_DIRECT) {
                 return node.getClusterNode();
             }
@@ -206,7 +213,7 @@ public class FlowRule extends AbstractRule {
                 return node;
             }
 
-        } else if (LIMIT_APP_OTHER.equals(limitApp) && FlowRuleManager.isOtherOrigin(origin, getResource())) {
+        } else if (RuleConstant.LIMIT_APP_OTHER.equals(limitApp) && FlowRuleManager.isOtherOrigin(origin, getResource())) {
             if (strategy == RuleConstant.STRATEGY_DIRECT) {
                 return context.getOriginNode();
             }
@@ -266,6 +273,10 @@ public class FlowRule extends AbstractRule {
             return false;
         }
 
+        if (maxQueueingTimeMs != flowRule.maxQueueingTimeMs) {
+            return false;
+        }
+
         return true;
     }
 
@@ -281,6 +292,7 @@ public class FlowRule extends AbstractRule {
         result = 31 * result + (int)(temp ^ (temp >>> 32));
         result = 31 * result + warmUpPeriodSec;
         result = 31 * result + controlBehavior;
+        result = 31 * result + maxQueueingTimeMs;
         return result;
     }
 

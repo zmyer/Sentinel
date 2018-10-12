@@ -52,7 +52,7 @@ public class SimpleHttpHeartbeatSender implements HeartbeatSender {
     public SimpleHttpHeartbeatSender() {
         // Retrieve the list of default addresses.
         List<InetSocketAddress> newAddrs = getDefaultConsoleIps();
-        RecordLog.info("Default console address list retrieved: " + newAddrs);
+        RecordLog.info("[SimpleHttpHeartbeatSender] Default console address list retrieved: " + newAddrs);
         this.addressList = newAddrs;
         // Set interval config.
         String interval = System.getProperty(TransportConfig.HEARTBEAT_INTERVAL_MS, String.valueOf(DEFAULT_INTERVAL));
@@ -61,6 +61,10 @@ public class SimpleHttpHeartbeatSender implements HeartbeatSender {
 
     @Override
     public boolean sendHeartbeat() throws Exception {
+        if (TransportConfig.getRuntimePort() <= 0) {
+            RecordLog.info("[SimpleHttpHeartbeatSender] Runtime port not initialized, won't send heartbeat");
+            return false;
+        }
         InetSocketAddress addr = getAvailableAddress();
         if (addr == null) {
             return false;
@@ -97,21 +101,29 @@ public class SimpleHttpHeartbeatSender implements HeartbeatSender {
 
     private List<InetSocketAddress> getDefaultConsoleIps() {
         List<InetSocketAddress> newAddrs = new ArrayList<InetSocketAddress>();
-        String ipsStr = TransportConfig.getConsoleServer();
-        if (StringUtil.isEmpty(ipsStr)) {
-            return newAddrs;
-        }
+        try {
+            String ipsStr = TransportConfig.getConsoleServer();
+            if (StringUtil.isEmpty(ipsStr)) {
+                return newAddrs;
+            }
 
-        for (String ipPortStr : ipsStr.split(",")) {
-            if (ipPortStr.trim().length() == 0) {
-                continue;
+            for (String ipPortStr : ipsStr.split(",")) {
+                if (ipPortStr.trim().length() == 0) {
+                    continue;
+                }
+                if (ipPortStr.startsWith("http://")) {
+                    ipPortStr = ipPortStr.trim().substring(7);
+                }
+                String[] ipPort = ipPortStr.trim().split(":");
+                int port = 80;
+                if (ipPort.length > 1) {
+                    port = Integer.parseInt(ipPort[1].trim());
+                }
+                newAddrs.add(new InetSocketAddress(ipPort[0].trim(), port));
             }
-            String[] ipPort = ipPortStr.trim().split(":");
-            int port = 80;
-            if (ipPort.length > 1) {
-                port = Integer.parseInt(ipPort[1].trim());
-            }
-            newAddrs.add(new InetSocketAddress(ipPort[0].trim(), port));
+        } catch (Exception ex) {
+            RecordLog.info("[SimpleHeartbeatSender] Parse console list failed, current address list: " + newAddrs, ex);
+            ex.printStackTrace();
         }
         return newAddrs;
     }
